@@ -4,17 +4,17 @@ import torch
 import matplotlib.pyplot as plt
 import matplotlib
 
-from TrajectoryNet import dataset, eval_utils
-from TrajectoryNet.parse import parser
-from TrajectoryNet.lib.growth_net import GrowthNet
-from TrajectoryNet.lib.viz_scrna import trajectory_to_video, save_vectors
-from TrajectoryNet.lib.viz_scrna import (
+import dataset, eval_utils
+from parse import parser
+from lib.growth_net import GrowthNet
+from lib.viz_scrna import trajectory_to_video, save_vectors
+from lib.viz_scrna import (
     save_trajectory_density,
     save_2d_trajectory,
     save_2d_trajectory_v2,
 )
 
-from TrajectoryNet.train_misc import (
+from train_misc import (
     set_cnf_options,
     count_nfe,
     count_parameters,

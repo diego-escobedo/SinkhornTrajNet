@@ -3,7 +3,7 @@ import numpy as np
 import os
 import torch
 
-from optimal_transport.emd import earth_mover_distance
+from lib.optimal_transport.emd import earth_mover_distance
 
 
 def generate_samples(device, args, model, growth_model, n=10000, timepoint=None):
