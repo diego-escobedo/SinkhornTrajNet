@@ -5,6 +5,8 @@ Learns ODE from scrna data
 """
 import os
 import matplotlib
+# matplotlib.use("Agg")
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -43,8 +45,7 @@ from eval_utils import evaluate_kantorovich_v2
 import dataset
 from parse import parser
 
-# matplotlib.use("Agg")
-matplotlib.use('TkAgg')
+
 
 
 
@@ -283,7 +284,7 @@ def visualize(device, args, model, itr):
         gt_samples = args.data.get_data()[idx]
         gt_samples = torch.from_numpy(gt_samples).type(torch.float32).to(device)
         d[i] = gt_samples
-        ax.hist2d(gt_samples[:, 0].numpy(), gt_samples[:, 1].numpy(), range=[[LOW, HIGH], [LOW, HIGH]], bins=npts)
+        ax.hist2d(gt_samples[:, 0].cpu().numpy(), gt_samples[:, 1].cpu().numpy(), range=[[LOW, HIGH], [LOW, HIGH]], bins=npts)
         ax.invert_yaxis()
         ax.get_xaxis().set_ticks([])
         ax.get_yaxis().set_ticks([])
@@ -295,7 +296,7 @@ def visualize(device, args, model, itr):
         ax = plt.subplot(nrows, ncols, ncols+i+1, aspect="equal")
         if i == 0:
             gt_samples = d[i]
-            ax.hist2d(gt_samples[:, 0].numpy(), gt_samples[:, 1].numpy(), range=[[LOW, HIGH], [LOW, HIGH]], bins=npts)
+            ax.hist2d(gt_samples[:, 0].cpu().numpy(), gt_samples[:, 1].cpu().numpy(), range=[[LOW, HIGH], [LOW, HIGH]], bins=npts)
             ax.invert_yaxis()
             ax.get_xaxis().set_ticks([])
             ax.get_yaxis().set_ticks([])
@@ -305,7 +306,7 @@ def visualize(device, args, model, itr):
             integration_times = torch.tensor([itp - args.time_scale, itp])
             integration_times = integration_times.type(torch.float32).to(device)
             advected_samples, = model(gt_samples, integration_times=integration_times) #add comma cuz unpacking tuple
-            ax.hist2d(advected_samples[:, 0].numpy(), advected_samples[:, 1].numpy(), range=[[LOW, HIGH], [LOW, HIGH]], bins=npts)
+            ax.hist2d(advected_samples[:, 0].cpu().numpy(), advected_samples[:, 1].cpu().numpy(), range=[[LOW, HIGH], [LOW, HIGH]], bins=npts)
             ax.invert_yaxis()
             ax.get_xaxis().set_ticks([])
             ax.get_yaxis().set_ticks([])
