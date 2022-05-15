@@ -18,7 +18,7 @@ class SequentialFlow(nn.Module):
 
         if logpx is None:
             for i in inds:
-                x = self.chain[i](x, reverse=reverse)
+                x = self.chain[i](x, integration_times=integration_times, reverse=reverse)
             return x
         else:
             for i in inds:

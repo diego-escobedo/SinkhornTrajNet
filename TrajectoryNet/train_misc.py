@@ -1,9 +1,9 @@
 import six
 import math
 
-from .lib.layers.wrappers import cnf_regularization as reg_lib
-from .lib import spectral_norm, layers
-from .lib.layers.odefunc import divergence_bf, divergence_approx
+from lib.layers.wrappers import regularization as reg_lib
+from lib import spectral_norm, layers
+from lib.layers.odefunc import divergence_bf, divergence_approx
 
 
 def standard_normal_logprob(z):
@@ -13,7 +13,7 @@ def standard_normal_logprob(z):
 
 def set_cnf_options(args, model):
     def _set(module):
-        if isinstance(module, layers.CNF):
+        if isinstance(module, layers.ODEHandler):
             # Set training settings
             module.solver = args.solver
             module.atol = args.atol
@@ -54,7 +54,7 @@ def count_nfe(model):
             self.num_evals = 0
 
         def __call__(self, module):
-            if isinstance(module, layers.CNF):
+            if isinstance(module, layers.ODEHandler):
                 self.num_evals += module.num_evals()
 
     accumulator = AccNumEvals()
@@ -72,7 +72,7 @@ def count_total_time(model):
             self.total_time = 0
 
         def __call__(self, module):
-            if isinstance(module, layers.CNF):
+            if isinstance(module, layers.ODEHandler):
                 self.total_time = (
                     self.total_time + module.sqrt_end_time * module.sqrt_end_time
                 )
@@ -92,7 +92,7 @@ def add_spectral_norm(model, logger=None):
             spectral_norm.inplace_spectral_norm(module, "weight")
 
     def find_cnf(module):
-        if isinstance(module, layers.CNF):
+        if isinstance(module, layers.ODEHandler):
             module.apply(apply_spectral_norm)
         else:
             for child in module.children():
@@ -154,7 +154,7 @@ def get_regularization(model, regularization_coeffs):
 
     acc_reg_states = tuple([0.0] * len(regularization_coeffs))
     for module in model.modules():
-        if isinstance(module, layers.CNF):
+        if isinstance(module, layers.ODEHandler):
             acc_reg_states = tuple(
                 acc + reg
                 for acc, reg in zip(acc_reg_states, module.get_regularization_states())
@@ -206,3 +206,63 @@ def build_model_tabular(args, dims, regularization_fns=None):
     set_cnf_options(args, model)
 
     return model
+
+def build_model_vanilla(args, dims, regularization_fns=None):
+
+    hidden_dims = tuple(map(int, args.dims.split("-")))
+
+    def build_handler():
+        diffeq = layers.DiffeqNet(
+            vector_field_dims=dims
+        )
+        odefunc = layers.VanillaODEfunc(
+            diffeq=diffeq,
+            rademacher=args.rademacher,
+        )
+        handler = layers.ODEHandler(
+            odefunc=odefunc,
+            regularization_fns=regularization_fns,
+            solver=args.solver,
+        )
+        return handler
+
+    chain = [build_handler() for _ in range(args.num_blocks)]
+    if args.batch_norm:
+        bn_layers = [
+            layers.MovingBatchNorm1d(dims, bn_lag=args.bn_lag)
+            for _ in range(args.num_blocks)
+        ]
+        bn_chain = [layers.MovingBatchNorm1d(dims, bn_lag=args.bn_lag)]
+        for a, b in zip(chain, bn_layers):
+            bn_chain.append(a)
+            bn_chain.append(b)
+        chain = bn_chain
+    model = layers.SequentialFlow(chain)
+
+    set_options(args, model)
+
+    return model
+
+def set_options(args, model):
+    def _set(module):
+        if isinstance(module, layers.ODEHandler):
+            # Set training settings
+            module.solver = args.solver
+            module.atol = args.atol
+            module.rtol = args.rtol
+            if args.step_size is not None:
+                module.solver_options["step_size"] = args.step_size
+
+            # If using fixed-grid adams, restrict order to not be too high.
+            if args.solver in ["fixed_adams", "explicit_adams"]:
+                module.solver_options["max_order"] = 4
+
+            # Set the test settings
+            module.test_solver = args.test_solver if args.test_solver else args.solver
+            module.test_atol = args.test_atol if args.test_atol else args.atol
+            module.test_rtol = args.test_rtol if args.test_rtol else args.rtol
+
+        if isinstance(module, layers.ODEfunc):
+            module.rademacher = args.rademacher
+
+    model.apply(_set)

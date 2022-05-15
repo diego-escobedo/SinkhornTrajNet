@@ -1,29 +1,14 @@
 import argparse
-from .lib.layers import odefunc
+from lib.layers import odefunc
 
 SOLVERS = ["dopri5", "bdf", "rk4", "midpoint", "adams", "explicit_adams", "fixed_adams"]
 
-parser = argparse.ArgumentParser("Continuous Normalizing Flow")
+parser = argparse.ArgumentParser("Sinkhorn NeuralODE for Single Cell Data")
 parser.add_argument("--test", action="store_true")
 parser.add_argument("--dataset", type=str, default="EB")
-parser.add_argument("--use_growth", action="store_true")
-parser.add_argument("--use_density", action="store_true")
+
 parser.add_argument("--leaveout_timepoint", type=int, default=-1)
-parser.add_argument(
-    "--layer_type",
-    type=str,
-    default="concatsquash",
-    choices=[
-        "ignore",
-        "concat",
-        "concat_v2",
-        "squash",
-        "concatsquash",
-        "concatcoord",
-        "hyper",
-        "blend",
-    ],
-)
+
 parser.add_argument("--max_dim", type=int, default=10)
 parser.add_argument("--dims", type=str, default="64-64-64")
 parser.add_argument("--num_blocks", type=int, default=1, help="Number of stacked CNFs.")
@@ -84,16 +69,6 @@ parser.add_argument(
 )
 parser.add_argument(
     "--JoffdiagFrobint", type=float, default=None, help="int_t ||df/dx - df_i/dx_i||_F"
-)
-parser.add_argument("--vecint", type=float, default=None, help="regularize direction")
-parser.add_argument(
-    "--use_magnitude",
-    action="store_true",
-    help="regularize direction using MSE loss instead of cosine loss",
-)
-
-parser.add_argument(
-    "--interp_reg", type=float, default=None, help="regularize interpolation"
 )
 
 parser.add_argument("--save", type=str, default="../results/tmp")

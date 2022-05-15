@@ -393,7 +393,8 @@ class EBData(SCData):
 
     def sample_index(self, n, label_subset):
         arr = np.arange(self.ncells)[self.labels == label_subset]
-        return np.random.choice(arr, size=n)
+        ret = arr if n == "all" else  np.random.choice(arr, size=n)
+        return ret
 
 
 class CircleTestDataV3(EBData):

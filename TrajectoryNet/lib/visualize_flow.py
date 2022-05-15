@@ -144,7 +144,7 @@ def visualize_transform(
         plt_flow(prior_density, transform, ax, npts=npts, device=device)
     else:
         plt_flow_density(prior_density, inverse_transform, ax, npts=npts, memory=memory, device=device)
-
-    ax = plt.subplot(1, 3, 3, aspect="equal")
-    if transform is not None:
-        plt_flow_samples(prior_sample, transform, ax, npts=npts, memory=memory, device=device)
+    plt.show()
+    # ax = plt.subplot(1, 3, 3, aspect="equal")
+    # if transform is not None:
+    #     plt_flow_samples(prior_sample, transform, ax, npts=npts, memory=memory, device=device)

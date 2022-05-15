@@ -3,7 +3,7 @@ import numpy as np
 import os
 import torch
 
-from .optimal_transport.emd import earth_mover_distance
+from optimal_transport.emd import earth_mover_distance
 
 
 def generate_samples(device, args, model, growth_model, n=10000, timepoint=None):
@@ -148,7 +148,7 @@ def evaluate_kantorovich_v2(device, args, model, growth_model=None):
     If we have a growth model we should use this to modify the weighting of the
     points over time.
     """
-    if args.use_growth or growth_model is not None:
+    if growth_model is not None:
         # raise NotImplementedError(
         #    "generating samples with growth model is not yet implemented"
         # )
@@ -171,8 +171,7 @@ def evaluate_kantorovich_v2(device, args, model, growth_model=None):
             args.data.get_times() == args.leaveout_timepoint - 1
         ]
         prev_z = torch.from_numpy(prev_z).type(torch.float32).to(device)
-        zero = torch.zeros(next_z.shape[0], 1).to(device)
-        z_backward, _ = model.chain[0](next_z, zero, integration_times=int_times)
+        z_backward, = model(next_z, integration_times=int_times, reverse=True)
         z_backward = z_backward.cpu().numpy()
         int_times = torch.tensor(
             [
@@ -180,10 +179,7 @@ def evaluate_kantorovich_v2(device, args, model, growth_model=None):
                 args.int_tps[args.leaveout_timepoint],
             ]
         )
-        zero = torch.zeros(prev_z.shape[0], 1).to(device)
-        z_forward, _ = model.chain[0](
-            prev_z, zero, integration_times=int_times, reverse=True
-        )
+        z_forward,  = model(prev_z, integration_times=int_times)
         z_forward = z_forward.cpu().numpy()
 
         emds = []
