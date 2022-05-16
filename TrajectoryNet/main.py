@@ -172,8 +172,8 @@ def compute_loss(device, args, model, logger, full_data, train_loss_fn, regulari
         )
 
     if len(regularization_coeffs) > 0:
-        reg_loss = reg_loss_f + reg_loss_b
-        reg_states = tuple([x+y for x,y in zip(reg_states_f, reg_states_b)])
+        reg_loss = reg_loss_f + -1*reg_loss_b 
+        reg_states = tuple([x+-1*y for x,y in zip(reg_states_f, reg_states_b)])
     else:
         reg_loss = 0
         reg_states = tuple()
