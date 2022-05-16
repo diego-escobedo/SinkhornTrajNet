@@ -260,7 +260,7 @@ def train(
         if itr % args.val_freq == 0 or itr == args.niters:
             with torch.no_grad():
                 train_eval(
-                    device, args, model, itr, best_loss, logger, full_data, train_loss_fn
+                    device, args, model, itr, best_loss, logger, full_data, train_loss_fn, regularization_coeffs
                 )
 
         if itr % args.viz_freq == 0:
@@ -281,9 +281,9 @@ def train(
     logger.info("Training has finished.")
 
 
-def train_eval(device, args, model, itr, best_loss, logger, full_data, train_loss_fn):
+def train_eval(device, args, model, itr, best_loss, logger, full_data, train_loss_fn, regularization_coeffs):
     model.eval()
-    test_loss = compute_loss(device, args, model, logger, full_data, train_loss_fn)
+    test_loss = compute_loss(device, args, model, logger, full_data, train_loss_fn, regularization_coeffs)
     emd_backward, emd_forward = evaluate_kantorovich_v2(device, args, model)
     test_nfe = count_nfe(model)
     log_message = "[TEST] Iter {:04d} | Test Loss {:.6f} | NFE {:.0f} | EMD F/B {:.4f}/{:.4f}".format(
