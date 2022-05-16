@@ -59,7 +59,6 @@ class ODEHandler(nn.Module):
                 atol=self.test_atol,
                 rtol=self.test_rtol,
                 method=self.test_solver,
-                adjoint_options = {"norm":"seminorm"}
             )
 
         if len(integration_times) == 2:
