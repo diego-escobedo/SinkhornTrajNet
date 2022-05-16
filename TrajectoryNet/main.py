@@ -110,7 +110,7 @@ def compute_loss(device, args, model, logger, full_data, train_loss_fn, regulari
         # integration_times.requires_grad = True
 
         # load data and add noise
-        if i != args.leaveout_timepoint:
+        if True:#i != args.leaveout_timepoint:
             idx = args.data.sample_index(n="all", label_subset=tp) #used to be n=args.batch_size, want to use all data points 
             x = args.data.get_data()[idx]
             x = torch.from_numpy(x).type(torch.float32).to(device)
@@ -144,12 +144,13 @@ def compute_loss(device, args, model, logger, full_data, train_loss_fn, regulari
         integration_times = integration_times.type(torch.float32).to(device)
 
         # load data and add noise
-        if i != args.leaveout_timepoint:
+        if True:#i != args.leaveout_timepoint:
             idx = args.data.sample_index(n="all", label_subset=tp) #used to be n=args.batch_size, want to use all data points 
             x = args.data.get_data()[idx]
             x = torch.from_numpy(x).type(torch.float32).to(device)
         else:
             x = z
+
         if args.training_noise > 0.0:
             x += np.random.randn(*x.shape) * args.training_noise
 
@@ -204,7 +205,7 @@ def train(
     
 
     end = time.time()
-    train_loss_fn = SamplesLoss("sinkhorn", p=2, blur=1.0, backend="online")
+    train_loss_fn = SamplesLoss("sinkhorn", p=2, blur=0.05, backend="online")
     for itr in range(1, args.niters + 1):
         model.train()
         optimizer.zero_grad()
