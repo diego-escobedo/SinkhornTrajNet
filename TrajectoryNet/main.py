@@ -102,6 +102,7 @@ def compute_loss(device, args, model, logger, full_data, train_loss_fn):
 
     # Backward pass accumulating losses, previous state and deltas
     loss = torch.zeros(size=(1, 1)).to(device)
+    #FORWARD
     z = None
     for i, (itp, tp) in enumerate(zip(args.int_tps[:-1], args.timepoints[:-1])): #dont integrate the last one obviously
         # tp counts down from last
@@ -127,6 +128,7 @@ def compute_loss(device, args, model, logger, full_data, train_loss_fn):
             ground_truth = args.data.get_data()[ground_truth_ix]
             gt = torch.from_numpy(ground_truth).type(torch.float32).to(device)
             loss += train_loss_fn(z, gt)
+    
     return loss
 
 

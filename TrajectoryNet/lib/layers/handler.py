@@ -49,6 +49,7 @@ class ODEHandler(nn.Module):
                 rtol=[self.rtol] + [1e20] * len(reg_states) if self.solver == 'dopri5' else self.rtol,
                 method=self.solver,
                 options=self.solver_options,
+                adjoint_options = {"norm":"seminorm"}
             )
         else:
             state_t = odeint(
@@ -58,6 +59,7 @@ class ODEHandler(nn.Module):
                 atol=self.test_atol,
                 rtol=self.test_rtol,
                 method=self.test_solver,
+                adjoint_options = {"norm":"seminorm"}
             )
 
         if len(integration_times) == 2:
