@@ -283,10 +283,11 @@ def train(
 
 def train_eval(device, args, model, itr, best_loss, logger, full_data, train_loss_fn, regularization_coeffs):
     model.eval()
-    test_loss = compute_loss(device, args, model, logger, full_data, train_loss_fn, regularization_coeffs)
+    loss, reg_loss, _ = compute_loss(device, args, model, logger, full_data, train_loss_fn, regularization_coeffs)
+    test_loss = loss + reg_loss
     emd_backward, emd_forward = evaluate_kantorovich_v2(device, args, model)
     test_nfe = count_nfe(model)
-    log_message = "[TEST] Iter {:04d} | Test Loss {:.6f} | NFE {:.0f} | EMD F/B {:.4f}/{:.4f}".format(
+    log_message = "[TEST] Iter {:04d} | Test+Reg Loss {:.6f} | NFE {:.0f} | EMD F/B {:.4f}/{:.4f}".format(
         itr, test_loss.item(), test_nfe, emd_forward, emd_backward
     )
     logger.info(log_message)
