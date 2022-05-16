@@ -403,7 +403,7 @@ class DiffeqNet(nn.Module):
     def __init__(self, vector_field_dims,
                         hidden_size=256,
                         nonlinearity=nn.Tanh(), 
-                        time_projection_dims=0, 
+                        time_projection_dims=64, 
                         t2v_activation=torch.sin,
                         incremental_mask=True,
                         nonl_final=False):

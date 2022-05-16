@@ -87,7 +87,7 @@ def get_transforms(device, args, model, integration_times):
     return sample_fn, density_fn
 
 
-def compute_loss(device, args, model, logger, full_data, train_loss_fn):
+def compute_loss(device, args, model, logger, full_data, train_loss_fn, regularization_coeffs):
     """
     Compute loss by integrating backwards from the last time step
     At each time step integrate back one time step, and concatenate that
@@ -100,7 +100,6 @@ def compute_loss(device, args, model, logger, full_data, train_loss_fn):
     death rate defined as a variation from uniform.
     """
 
-    # Backward pass accumulating losses, previous state and deltas
     loss = torch.zeros(size=(1, 1)).to(device)
     #FORWARD
     z = None
@@ -128,7 +127,57 @@ def compute_loss(device, args, model, logger, full_data, train_loss_fn):
             gt = torch.from_numpy(ground_truth).type(torch.float32).to(device)
             loss += train_loss_fn(z, gt)
     
-    return loss
+    if len(regularization_coeffs) > 0:
+        # Only regularize on the last timepoint
+        reg_states_f = get_regularization(model, regularization_coeffs)
+        reg_loss_f = sum(
+            reg_state * coeff
+            for reg_state, coeff in zip(reg_states_f, regularization_coeffs)
+            if coeff != 0
+        )
+
+    #BACKWARD
+    z = None
+    for i, (itp, tp) in enumerate(zip(args.int_tps[::-1][:-1], args.timepoints[::-1][:-1])): #dont integrate the last one obviously
+        # tp counts down from last
+        integration_times = torch.tensor([itp - args.time_scale, itp])
+        integration_times = integration_times.type(torch.float32).to(device)
+
+        # load data and add noise
+        if i != args.leaveout_timepoint:
+            idx = args.data.sample_index(n="all", label_subset=tp) #used to be n=args.batch_size, want to use all data points 
+            x = args.data.get_data()[idx]
+            x = torch.from_numpy(x).type(torch.float32).to(device)
+        else:
+            x = z
+        if args.training_noise > 0.0:
+            x += np.random.randn(*x.shape) * args.training_noise
+
+        # transform to next timepoint
+        next_tp_index_reverse = len(args.timepoints)-i-2
+        z, = model(x, integration_times=integration_times, reverse=True) #add comma cuz unpacking tuple
+        if args.timepoints[next_tp_index_reverse] != args.leaveout_timepoint:
+            ground_truth_ix = args.data.sample_index(n="all", label_subset=args.timepoints[next_tp_index_reverse])
+            ground_truth = args.data.get_data()[ground_truth_ix]
+            gt = torch.from_numpy(ground_truth).type(torch.float32).to(device)
+            loss += train_loss_fn(z, gt)
+    
+    if len(regularization_coeffs) > 0:
+        # Only regularize on the last timepoint
+        reg_states_b = get_regularization(model, regularization_coeffs)
+        reg_loss_b = sum(
+            reg_state * coeff
+            for reg_state, coeff in zip(reg_states_b, regularization_coeffs)
+            if coeff != 0
+        )
+
+    if len(regularization_coeffs) > 0:
+        reg_loss = reg_loss_f + reg_loss_b
+        reg_states = tuple([x+y for x,y in zip(reg_states_f, reg_states_b)])
+    else:
+        reg_loss = 0
+        reg_states = tuple()
+    return loss, reg_loss, reg_states
 
 
 def train(
@@ -170,20 +219,12 @@ def train(
         if args.spectral_norm:
             spectral_norm_power_iteration(model, 1)
 
-        loss = compute_loss(device, args, model, logger, full_data, train_loss_fn)
+        loss, reg_loss, reg_states = compute_loss(device, args, model, logger, full_data, train_loss_fn, regularization_coeffs)
         loss_meter.update(loss.item())
 
-        if len(regularization_coeffs) > 0:
-            # Only regularize on the last timepoint
-            reg_states = get_regularization(model, regularization_coeffs)
-            reg_loss = sum(
-                reg_state * coeff
-                for reg_state, coeff in zip(reg_states, regularization_coeffs)
-                if coeff != 0
-            )
-            loss = loss + reg_loss
         nfe_forward = count_nfe(model)
 
+        loss = loss + reg_loss
         loss.backward()
         optimizer.step()
 
