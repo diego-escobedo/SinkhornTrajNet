@@ -50,7 +50,7 @@ class RegularizedVanillaODEfunc(nn.Module):
             pass
 
         with torch.enable_grad():
-            z = state[:1]
+            z, = state[:1]
             z.requires_grad_(True)
             t.requires_grad_(True)
             dstate = self.odefunc(t, (z,))

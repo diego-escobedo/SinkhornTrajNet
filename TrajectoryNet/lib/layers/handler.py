@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
 
-from torchdiffeq import odeint_adjoint as odeint
+from torchdiffeq import odeint as odeint
 
 from lib.layers.wrappers.regularization import RegularizedVanillaODEfunc
+
+import inspect
 
 __all__ = ["ODEHandler"]
 
@@ -39,7 +41,6 @@ class ODEHandler(nn.Module):
             reg_states = self.get_regularization_states()
         else:
             reg_states = tuple(torch.tensor(0).to(z) for _ in range(self.nreg))
-
         if self.training:
             state_t = odeint(
                 self.odefunc,
@@ -49,7 +50,6 @@ class ODEHandler(nn.Module):
                 rtol=[self.rtol] + [1e20] * len(reg_states) if self.solver == 'dopri5' else self.rtol,
                 method=self.solver,
                 options=self.solver_options,
-                adjoint_options = {"norm":"seminorm"}
             )
         else:
             state_t = odeint(
@@ -60,7 +60,6 @@ class ODEHandler(nn.Module):
                 rtol=self.test_rtol,
                 method=self.test_solver,
             )
-
         if len(integration_times) == 2:
             state_t = tuple(s[1] for s in state_t)
 

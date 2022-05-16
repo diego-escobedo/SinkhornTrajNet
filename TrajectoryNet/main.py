@@ -117,7 +117,6 @@ def compute_loss(device, args, model, logger, full_data, train_loss_fn):
             x = torch.from_numpy(x).type(torch.float32).to(device)
         else:
             x = z
-        
         if args.training_noise > 0.0:
             x += np.random.randn(*x.shape) * args.training_noise
 
@@ -182,7 +181,6 @@ def train(
                 for reg_state, coeff in zip(reg_states, regularization_coeffs)
                 if coeff != 0
             )
-            print("REGLOSS", reg_loss)
             loss = loss + reg_loss
         nfe_forward = count_nfe(model)
 
