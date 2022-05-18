@@ -24,7 +24,7 @@ parser.add_argument("--sape_freqs", type=int, default=128)
 parser.add_argument("--sape_incremental", type=eval, default=True)
 parser.add_argument("--sape_time", type=eval, default=True)
 
-parser.add_argument("--sinkhorn_blur", type=float, default=float)
+parser.add_argument("--sinkhorn_blur", type=float, default=0.05)
 parser.add_argument("--num_blocks", type=int, default=1, help="Number of stacked CNFs.")
 parser.add_argument("--time_scale", type=float, default=0.5)
 parser.add_argument("--train_T", type=eval, default=True)
