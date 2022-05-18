@@ -25,10 +25,10 @@ def _get_minibatch_jacobian(y, x):
     """Computes the Jacobian of y wrt x assuming minibatch-mode.
 
     Args:
-      y: (N, ...) with a total of D_y elements in ...
-      x: (N, ...) with a total of D_x elements in ...
+        y: (N, ...) with a total of D_y elements in ...
+        x: (N, ...) with a total of D_x elements in ...
     Returns:
-      The minibatch Jacobian matrix of shape (N, D_y, D_x)
+        The minibatch Jacobian matrix of shape (N, D_y, D_x)
     """
     assert y.shape[0] == x.shape[0]
     y = y.view(y.shape[0], -1)
@@ -37,7 +37,7 @@ def _get_minibatch_jacobian(y, x):
     jac = []
     for j in range(y.shape[1]):
         dy_j_dx = torch.autograd.grad(y[:, j], x, torch.ones_like(y[:, j]), retain_graph=True,
-                                      create_graph=True)[0].view(x.shape[0], -1)
+                                        create_graph=True)[0].view(x.shape[0], -1)
         jac.append(torch.unsqueeze(dy_j_dx, 1))
     jac = torch.cat(jac, 1)
     return jac
@@ -88,275 +88,6 @@ NONLINEARITIES = {
     "identity": Lambda(lambda x: x),
 }
 
-
-class ODEnet(nn.Module):
-    """
-    Helper class to make neural nets for use in continuous normalizing flows
-    """
-
-    def __init__(
-        self, hidden_dims, input_shape, strides, conv, layer_type="concat", nonlinearity="softplus", num_squeeze=0
-    ):
-        super(ODEnet, self).__init__()
-        self.num_squeeze = num_squeeze
-        if conv:
-            assert len(strides) == len(hidden_dims) + 1
-            base_layer = {
-                "ignore": diffeq_layers.IgnoreConv2d,
-                "hyper": diffeq_layers.HyperConv2d,
-                "squash": diffeq_layers.SquashConv2d,
-                "concat": diffeq_layers.ConcatConv2d,
-                "concat_v2": diffeq_layers.ConcatConv2d_v2,
-                "concatsquash": diffeq_layers.ConcatSquashConv2d,
-                "blend": diffeq_layers.BlendConv2d,
-                "concatcoord": diffeq_layers.ConcatCoordConv2d,
-            }[layer_type]
-        else:
-            strides = [None] * (len(hidden_dims) + 1)
-            base_layer = {
-                "ignore": diffeq_layers.IgnoreLinear,
-                "hyper": diffeq_layers.HyperLinear,
-                "squash": diffeq_layers.SquashLinear,
-                "concat": diffeq_layers.ConcatLinear,
-                "concat_v2": diffeq_layers.ConcatLinear_v2,
-                "concatsquash": diffeq_layers.ConcatSquashLinear,
-                "blend": diffeq_layers.BlendLinear,
-                "concatcoord": diffeq_layers.ConcatLinear,
-            }[layer_type]
-
-        # build layers and add them
-        layers = []
-        activation_fns = []
-        hidden_shape = input_shape
-
-        for dim_out, stride in zip(hidden_dims + (input_shape[0],), strides):
-            if stride is None:
-                layer_kwargs = {}
-            elif stride == 1:
-                layer_kwargs = {"ksize": 3, "stride": 1, "padding": 1, "transpose": False}
-            elif stride == 2:
-                layer_kwargs = {"ksize": 4, "stride": 2, "padding": 1, "transpose": False}
-            elif stride == -2:
-                layer_kwargs = {"ksize": 4, "stride": 2, "padding": 1, "transpose": True}
-            else:
-                raise ValueError('Unsupported stride: {}'.format(stride))
-
-            layer = base_layer(hidden_shape[0], dim_out, **layer_kwargs)
-            layers.append(layer)
-            activation_fns.append(NONLINEARITIES[nonlinearity])
-
-            hidden_shape = list(copy.copy(hidden_shape))
-            hidden_shape[0] = dim_out
-            if stride == 2:
-                hidden_shape[1], hidden_shape[2] = hidden_shape[1] // 2, hidden_shape[2] // 2
-            elif stride == -2:
-                hidden_shape[1], hidden_shape[2] = hidden_shape[1] * 2, hidden_shape[2] * 2
-
-        self.layers = nn.ModuleList(layers)
-        self.activation_fns = nn.ModuleList(activation_fns[:-1])
-
-    def forward(self, t, y):
-        dx = y
-        # squeeze
-        for _ in range(self.num_squeeze):
-            dx = squeeze(dx, 2)
-        for l, layer in enumerate(self.layers):
-            dx = layer(t, dx)
-            # if not last layer, use nonlinearity
-            if l < len(self.layers) - 1:
-                dx = self.activation_fns[l](dx)
-        # unsqueeze
-        for _ in range(self.num_squeeze):
-            dx = unsqueeze(dx, 2)
-        return dx
-
-
-class AutoencoderDiffEqNet(nn.Module):
-    """
-    Helper class to make neural nets for use in continuous normalizing flows
-    """
-
-    def __init__(self, hidden_dims, input_shape, strides, conv, layer_type="concat", nonlinearity="softplus"):
-        super(AutoencoderDiffEqNet, self).__init__()
-        assert layer_type in ("ignore", "hyper", "concat", "concatcoord", "blend")
-        assert nonlinearity in ("tanh", "relu", "softplus", "elu")
-
-        self.nonlinearity = {"tanh": F.tanh, "relu": F.relu, "softplus": F.softplus, "elu": F.elu}[nonlinearity]
-        if conv:
-            assert len(strides) == len(hidden_dims) + 1
-            base_layer = {
-                "ignore": diffeq_layers.IgnoreConv2d,
-                "hyper": diffeq_layers.HyperConv2d,
-                "squash": diffeq_layers.SquashConv2d,
-                "concat": diffeq_layers.ConcatConv2d,
-                "blend": diffeq_layers.BlendConv2d,
-                "concatcoord": diffeq_layers.ConcatCoordConv2d,
-            }[layer_type]
-        else:
-            strides = [None] * (len(hidden_dims) + 1)
-            base_layer = {
-                "ignore": diffeq_layers.IgnoreLinear,
-                "hyper": diffeq_layers.HyperLinear,
-                "squash": diffeq_layers.SquashLinear,
-                "concat": diffeq_layers.ConcatLinear,
-                "blend": diffeq_layers.BlendLinear,
-                "concatcoord": diffeq_layers.ConcatLinear,
-            }[layer_type]
-
-        # build layers and add them
-        encoder_layers = []
-        decoder_layers = []
-        hidden_shape = input_shape
-        for i, (dim_out, stride) in enumerate(zip(hidden_dims + (input_shape[0],), strides)):
-            if i <= len(hidden_dims) // 2:
-                layers = encoder_layers
-            else:
-                layers = decoder_layers
-
-            if stride is None:
-                layer_kwargs = {}
-            elif stride == 1:
-                layer_kwargs = {"ksize": 3, "stride": 1, "padding": 1, "transpose": False}
-            elif stride == 2:
-                layer_kwargs = {"ksize": 4, "stride": 2, "padding": 1, "transpose": False}
-            elif stride == -2:
-                layer_kwargs = {"ksize": 4, "stride": 2, "padding": 1, "transpose": True}
-            else:
-                raise ValueError('Unsupported stride: {}'.format(stride))
-
-            layers.append(base_layer(hidden_shape[0], dim_out, **layer_kwargs))
-
-            hidden_shape = list(copy.copy(hidden_shape))
-            hidden_shape[0] = dim_out
-            if stride == 2:
-                hidden_shape[1], hidden_shape[2] = hidden_shape[1] // 2, hidden_shape[2] // 2
-            elif stride == -2:
-                hidden_shape[1], hidden_shape[2] = hidden_shape[1] * 2, hidden_shape[2] * 2
-
-        self.encoder_layers = nn.ModuleList(encoder_layers)
-        self.decoder_layers = nn.ModuleList(decoder_layers)
-
-    def forward(self, t, y):
-        h = y
-        for layer in self.encoder_layers:
-            h = self.nonlinearity(layer(t, h))
-
-        dx = h
-        for i, layer in enumerate(self.decoder_layers):
-            dx = layer(t, dx)
-            # if not last layer, use nonlinearity
-            if i < len(self.decoder_layers) - 1:
-                dx = self.nonlinearity(dx)
-        return h, dx
-
-
-class ODEfunc(nn.Module):
-
-    def __init__(self, diffeq, divergence_fn="approximate", residual=False, rademacher=False):
-        super(ODEfunc, self).__init__()
-        assert divergence_fn in ("brute_force", "approximate")
-
-        # self.diffeq = diffeq_layers.wrappers.diffeq_wrapper(diffeq)
-        self.diffeq = diffeq
-        self.residual = residual
-        self.rademacher = rademacher
-
-        if divergence_fn == "brute_force":
-            self.divergence_fn = divergence_bf
-        elif divergence_fn == "approximate":
-            self.divergence_fn = divergence_approx
-
-        self.register_buffer("_num_evals", torch.tensor(0.))
-
-    def before_odeint(self, e=None):
-        self._e = e
-        self._num_evals.fill_(0)
-
-    def forward(self, t, states):
-        assert len(states) >= 2
-        y = states[0]
-
-        # increment num evals
-        self._num_evals += 1
-
-        # convert to tensor
-        # t = torch.tensor(t).type_as(y)
-        batchsize = y.shape[0]
-
-        # Sample and fix the noise.
-        if self._e is None:
-            if self.rademacher:
-                self._e = sample_rademacher_like(y)
-            else:
-                self._e = sample_gaussian_like(y)
-
-        with torch.set_grad_enabled(True):
-            y.requires_grad_(True)
-            t.requires_grad_(True)
-            for s_ in states[2:]:
-                s_.requires_grad_(True)
-            dy = self.diffeq(t, y, *states[2:])
-            # Hack for 2D data to use brute force divergence computation.
-            if not self.training and dy.view(dy.shape[0], -1).shape[1] == 2:
-                divergence = divergence_bf(dy, y).view(batchsize, 1)
-            else:
-                divergence = self.divergence_fn(dy, y, e=self._e).view(batchsize, 1)
-        if self.residual:
-            dy = dy - y
-            divergence -= torch.ones_like(divergence) * torch.tensor(np.prod(y.shape[1:]), dtype=torch.float32
-                                                                     ).to(divergence)
-        return tuple([dy, -divergence] + [torch.zeros_like(s_).requires_grad_(True) for s_ in states[2:]])
-
-
-class AutoencoderODEfunc(nn.Module):
-
-    def __init__(self, autoencoder_diffeq, divergence_fn="approximate", residual=False, rademacher=False):
-        assert divergence_fn in ("approximate"), "Only approximate divergence supported at the moment. (TODO)"
-        assert isinstance(autoencoder_diffeq, AutoencoderDiffEqNet)
-        super(AutoencoderODEfunc, self).__init__()
-        self.residual = residual
-        self.autoencoder_diffeq = autoencoder_diffeq
-        self.rademacher = rademacher
-
-        self.register_buffer("_num_evals", torch.tensor(0.))
-
-    def before_odeint(self, e=None):
-        self._e = e
-        self._num_evals.fill_(0)
-
-    def forward(self, t, y_and_logpy):
-        y, _ = y_and_logpy  # remove logpy
-
-        # increment num evals
-        self._num_evals += 1
-
-        # convert to tensor
-        t = torch.tensor(t).type_as(y)
-        batchsize = y.shape[0]
-
-        with torch.set_grad_enabled(True):
-            y.requires_grad_(True)
-            t.requires_grad_(True)
-            h, dy = self.autoencoder_diffeq(t, y)
-
-            # Sample and fix the noise.
-            if self._e is None:
-                if self.rademacher:
-                    self._e = sample_rademacher_like(h)
-                else:
-                    self._e = sample_gaussian_like(h)
-
-            e_vjp_dhdy = torch.autograd.grad(h, y, self._e, create_graph=True)[0]
-            e_vjp_dfdy = torch.autograd.grad(dy, h, e_vjp_dhdy, create_graph=True)[0]
-            divergence = torch.sum((e_vjp_dfdy * self._e).view(batchsize, -1), 1, keepdim=True)
-
-        if self.residual:
-            dy = dy - y
-            divergence -= torch.ones_like(divergence) * torch.tensor(np.prod(y.shape[1:]), dtype=torch.float32
-                                                                    ).to(divergence)
-
-        return dy, -divergence
-
 class VanillaODEfunc(nn.Module):
 
     def __init__(self, diffeq, rademacher=False):
@@ -401,57 +132,79 @@ class DiffeqNet(nn.Module):
     Actual NN used to approximate the derivative of the hidden state
     """
     def __init__(self, vector_field_dims,
-                        hidden_size=256,
-                        nonlinearity=nn.Tanh(), 
-                        time_projection_dims=64, 
-                        t2v_activation=torch.sin,
-                        incremental_mask=True,
+                        ff_hidden_dims,
+                        *,
+                        #tim2vec params
+                        time2vec=True,
+                        time2vec_dims=64,
+                        time2vec_activation=torch.sin, #default, not in args
+                        #sape params
+                        sape=True,
+                        sape_incremental_mask=True,
+                        sape_n_freq=128,
+                        sape_sigma=2, #default, not in args
+                        sape_use_time=False,
+                        #feedforward network params
+                        nonlinearity="tanh", 
                         nonl_final=False):
         super(DiffeqNet, self).__init__()
 
         self.vector_field_dims = vector_field_dims
 
-        #time related
-        self.time_proj_unactivated = nn.Linear(1, 1, bias=True) # will take from 1x1 -> 1x1
-        if time_projection_dims:
-            self.time_proj_activated = nn.Linear(1, time_projection_dims, bias=True)
-        else:
-            self.time_proj_activated = None
-        self.t2v_activation = t2v_activation
+        self.ff_network_d_in = 0
 
-        #event related
-        self.feature_mapping = InputMapping(d_in=vector_field_dims+time_projection_dims+1, 
-                                            n_freq=150, 
-                                            incrementalMask=incremental_mask, 
-                                            sigma=2)
-        self.fc1 = nn.Linear(self.feature_mapping.d_out, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, vector_field_dims)
-        self.nonl = nonlinearity
-        self.nonl_final = nonl_final
+        #handle time2vec
+        if time2vec:
+            self.t2v = Time2Vec(time2vec_dims, t2v_activation=time2vec_activation)
+            self.ff_network_d_in += self.t2v.d_out
+        
+        #handle sape
+        if sape:
+            self.sape_use_time = sape_use_time
+            imap_d_in = vector_field_dims
+            if sape_use_time: imap_d_in += 1 #add time as a dimension
+            self.feature_mapping = InputMapping(d_in=imap_d_in, 
+                                                n_freq=sape_n_freq, 
+                                                incrementalMask=sape_incremental_mask, 
+                                                sigma=sape_sigma)
+            self.ff_network_d_in += self.feature_mapping.d_out
+
+        #handle ffn
+        #if no sape or time2vec just feed everything in directly
+        input_size =  self.ff_network_d_in if self.ff_network_d_in > 0 else vector_field_dims+1 
+        stack = [nn.Linear(input_size, ff_hidden_dims[0])]
+        for output_size in ff_hidden_dims[1:]:
+            input_size = stack[-1].out_features
+            stack.append(nn.Linear(input_size, output_size))
+            stack.append(NONLINEARITIES[nonlinearity])
+        stack.append(nn.Linear(stack[-1].out_features, vector_field_dims))
+        if nonl_final:
+            stack.append(NONLINEARITIES[nonlinearity])
+        self.ffn = nn.Sequential(*stack)
 
     def forward(self, t, state):
+        #vectorize time
         state, t = self._handle_dims(t, state)
-        #run the multiplicatiosn needed
-        time_projection = self.time_proj_unactivated(t) # num_samples x 1... this is the "unactivated" projection
-        if self.time_proj_activated:
-            tp_activated = self.t2v_activation(self.time_proj_activated(t)) # num_samples x time_projection_dims
-            time_projection = torch.cat((time_projection, tp_activated), dim=1) # num_samples x time_projection_dims+1
 
-        #concatenate with state
-        combined = torch.cat((state, time_projection), dim=-1).to(torch.float32) # num_samples x (vector_field_dims+time_projection_dims+1)
+        #check inptus to ffn
+        ffn_input = []
+        if getattr(self, 't2v', None):
+            ffn_input.append(self.t2v(t))
+        if getattr(self, 'feature_mapping', None):
+            feat_map_input = torch.cat((state, t), dim=-1).to(torch.float32) if self.sape_use_time else state
+            ffn_input.append(self.feature_mapping(feat_map_input))
         
-        # run through fourier feature mapping
-        output = self.feature_mapping(combined)
-        #transform to get nonlinearities ... event is num_samples x d_in
-        output = self.nonl(self.fc1(output)) # num_samples x hidden_size
-        output = self.nonl(self.fc2(output)) # num_samples x hidden_size
-        output = self.fc3(output) # num_samples x vector_field_dims
-        if self.nonl_final:
-            return self.nonl(output)
+        if len(ffn_input) == 0:
+            ffn_input = torch.cat((state, t), dim=-1).to(torch.float32)
+        elif len(ffn_input) == 1:
+            ffn_input = ffn_input[0]
         else:
-            return output 
-    
+            ffn_input = torch.cat(ffn_input, dim=-1).to(torch.float32)
+
+        ffn_output = self.ffn(ffn_input)
+
+        return ffn_output
+
     def _handle_dims(self, t, state):
         #we want state to be num_samples x num_dims
         state = state.reshape(-1, self.vector_field_dims)    
@@ -464,6 +217,29 @@ class DiffeqNet(nn.Module):
             assert torch.numel(t) == state.shape[0]
         
         return state, t.to(torch.float32)
+
+class Time2Vec(nn.Module):
+    "Make a time2vec component"
+    def __init__(self, projection_dims, t2v_activation=torch.sin):
+        self.time_proj_unactivated = nn.Linear(1, 1) # will take from 1x1 -> 1x1
+        if projection_dims > 0:
+            self.time_proj_activated = nn.Linear(1, projection_dims)
+        else:
+            self.time_proj_activated = None
+        
+        self.t2v_activation = t2v_activation
+
+        self.d_out = 1 + projection_dims
+    
+    def forward(self, t):
+        #run the multiplicatiosn needed
+        time_projection = self.time_proj_unactivated(t) # num_samples x 1... this is the "unactivated" projection
+        if self.time_proj_activated:
+            tp_activated = self.t2v_activation(self.time_proj_activated(t)) # num_samples x time_projection_dims
+            time_projection = torch.cat((time_projection, tp_activated), dim=-1) # num_samples x time_projection_dims+1
+        
+        return time_projection
+
 
 class InputMapping(nn.Module):
     """Fourier features mapping"""

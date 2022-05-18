@@ -1,7 +1,20 @@
 import argparse
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from lib.layers import odefunc
 
 SOLVERS = ["dopri5", "bdf", "rk4", "midpoint", "adams", "explicit_adams", "fixed_adams"]
+
+NONLINEARITIES = [
+    "tanh",
+    "relu",
+    "softplus",
+    "elu",
+    "swish",
+    "square",
+    "identity",
+]
 
 parser = argparse.ArgumentParser("Sinkhorn NeuralODE for Single Cell Data")
 parser.add_argument("--test", action="store_true")
@@ -10,7 +23,22 @@ parser.add_argument("--dataset", type=str, default="EB")
 parser.add_argument("--leaveout_timepoint", type=int, default=-1)
 
 parser.add_argument("--max_dim", type=int, default=10)
-parser.add_argument("--dims", type=str, default="64-64-64")
+
+#Feed forward Network
+parser.add_argument("--dims", type=str, default="256-128-64")
+parser.add_argument("--ffn_nonlinearity", type=str, default="tanh", choices=NONLINEARITIES)
+parser.add_argument("--ffn_nonl_final", type=eval, default=False)
+
+
+#time2vec
+parser.add_argument("--time2vec_dims", type=int, default=64)
+
+#SAPE
+parser.add_argument("--sape_freqs", type=int, default=128)
+parser.add_argument("--sape_incremental", type=eval, default=True)
+parser.add_argument("--sape_time", type=eval, default=True)
+
+
 parser.add_argument("--num_blocks", type=int, default=1, help="Number of stacked CNFs.")
 parser.add_argument("--time_scale", type=float, default=0.5)
 parser.add_argument("--train_T", type=eval, default=True)
@@ -25,9 +53,7 @@ parser.add_argument(
 )
 parser.add_argument("--stochastic", action="store_true")
 
-parser.add_argument(
-    "--alpha", type=float, default=0.0, help="loss weight parameter for growth model"
-)
+
 parser.add_argument("--solver", type=str, default="dopri5", choices=SOLVERS)
 parser.add_argument("--atol", type=float, default=1e-5)
 parser.add_argument("--rtol", type=float, default=1e-5)
@@ -45,6 +71,7 @@ parser.add_argument("--spectral_norm", action="store_true")
 parser.add_argument("--batch_norm", action="store_true")
 parser.add_argument("--bn_lag", type=float, default=0)
 
+#TRaining arguments
 parser.add_argument("--niters", type=int, default=10000)
 parser.add_argument("--num_workers", type=int, default=8)
 parser.add_argument("--batch_size", type=int, default=1000)
@@ -53,7 +80,7 @@ parser.add_argument("--viz_batch_size", type=int, default=2000)
 parser.add_argument("--lr", type=float, default=1e-3)
 parser.add_argument("--weight_decay", type=float, default=1e-5)
 
-# Track quantities
+# Regularizations
 parser.add_argument("--l1int", type=float, default=None, help="int_t ||f||_1")
 parser.add_argument("--l2int", type=float, default=None, help="int_t ||f||_2")
 parser.add_argument("--sl2int", type=float, default=None, help="int_t ||f||_2^2")

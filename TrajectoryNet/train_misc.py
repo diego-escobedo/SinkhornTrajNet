@@ -213,7 +213,19 @@ def build_model_vanilla(args, dims, regularization_fns=None):
 
     def build_handler():
         diffeq = layers.DiffeqNet(
-            vector_field_dims=dims
+            dims,
+            hidden_dims,
+            #tim2vec params
+            time2vec=args.time2vec_dims > 0,
+            time2vec_dims=args.time2vec_dims,
+            #sape params
+            sape=args.sape_freqs > 0,
+            sape_incremental_mask=args.sape_incremental,
+            sape_n_freq=args.sape_freqs,
+            sape_use_time=args.sape_time,
+            #feedforward network params
+            nonlinearity=args.ffn_nonlinearity, 
+            nonl_final=args.ffn_nonl_final
         )
         odefunc = layers.VanillaODEfunc(
             diffeq=diffeq,
