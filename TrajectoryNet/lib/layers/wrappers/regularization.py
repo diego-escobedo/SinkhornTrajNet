@@ -106,16 +106,30 @@ def directional_l2_change_penalty_fn(x, logp, dx, dlogp, t, context):
     dfdt_full = dfdt + torch.sum(directional_dx, axis=0)
     return torch.mean(torch.norm(dfdt_full, p=2) / dfdt_full.shape[0] ** 0.5)
 
-
-def jacobian_frobenius_regularization_fn(x, logp, dx, dlogp, t, context):
+def jacobian_frobenius_regularization_fn(x, logp, dx, dlogp, t, context, exact=False):
     del logp, dlogp, t
-    if hasattr(context, "jac"):
-        jac = context.jac
+    if exact:
+        if hasattr(context, "jac"):
+            jac = context.jac
+        else:
+            jac = _get_minibatch_jacobian(dx, x)
+            context.jac = jac
+        return _batch_root_mean_squared(jac)
     else:
-        jac = _get_minibatch_jacobian(dx, x)
-        context.jac = jac
-    return _batch_root_mean_squared(jac)
+        if hasattr(context, "vector_jacobian_product"):
+            hutchinson_vjp = context.vector_jacobian_product
+        else:
+            hutchinson_vjp = batch_vector_jacobian_product(dx, x,)
+            context.hutchinson_vjp = hutchinson_vjp
+        frob_norm = hutchinson_vjp.view(hutchinson_vjp.shape[0], -1).pow(2).mean(dim=-1)
+        return frob_norm
 
+def sample_gaussian_like(y):
+    return torch.randn_like(y)
+
+def batch_vector_jacobian_product(f, z, e):
+    e_jacobian = torch.autograd.grad(f.squeeze(), z, sample_gaussian_like(z), create_graph=True)[0]
+    return e_jacobian
 
 def jacobian_diag_frobenius_regularization_fn(x, logp, dx, dlogp, t, context):
     del logp, dlogp, t

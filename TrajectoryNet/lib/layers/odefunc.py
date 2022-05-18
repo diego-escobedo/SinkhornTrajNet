@@ -93,7 +93,6 @@ class VanillaODEfunc(nn.Module):
     def __init__(self, diffeq, rademacher=False):
         super(VanillaODEfunc, self).__init__()
 
-        # self.diffeq = diffeq_layers.wrappers.diffeq_wrapper(diffeq)
         self.diffeq = diffeq
         self.rademacher = rademacher
 
