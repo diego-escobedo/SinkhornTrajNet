@@ -64,7 +64,9 @@ class ODEHandler(nn.Module):
             state_t = tuple(s[1] for s in state_t)
 
         z_t = state_t[:1]
-        self.regularization_states = state_t[1:]
+        
+        if self.training:
+            self.regularization_states = state_t[1:]
 
         return z_t
 
