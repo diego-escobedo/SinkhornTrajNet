@@ -37,9 +37,9 @@ class ODEHandler(nn.Module):
 
         # Add regularization states.
         if self.regularization_states is not None:
-            reg_states = self.get_regularization_states()
+            reg_states = tuple(torch.full(z.size(0), torch.mean(reg)).to(z) for reg in self.get_regularization_states())
         else:
-            reg_states = tuple(torch.tensor(0).to(z) for _ in range(self.nreg))
+            reg_states = tuple(torch.zeros(z.size(0)).to(z) for _ in range(self.nreg))
         if self.training:
             state_t = odeint(
                 self.odefunc,
