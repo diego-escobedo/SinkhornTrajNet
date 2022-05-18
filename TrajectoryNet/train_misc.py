@@ -30,7 +30,7 @@ def set_cnf_options(args, model):
             module.test_atol = args.test_atol if args.test_atol else args.atol
             module.test_rtol = args.test_rtol if args.test_rtol else args.rtol
 
-        if isinstance(module, layers.ODEfunc):
+        if isinstance(module, layers.VanillaODEfunc):
             module.rademacher = args.rademacher
             module.residual = args.residual
 
@@ -274,7 +274,7 @@ def set_options(args, model):
             module.test_atol = args.test_atol if args.test_atol else args.atol
             module.test_rtol = args.test_rtol if args.test_rtol else args.rtol
 
-        if isinstance(module, layers.ODEfunc):
+        if isinstance(module, layers.VanillaODEfunc):
             module.rademacher = args.rademacher
 
     model.apply(_set)
