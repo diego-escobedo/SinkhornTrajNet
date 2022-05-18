@@ -119,7 +119,7 @@ def jacobian_frobenius_regularization_fn(x, logp, dx, dlogp, t, context, exact=F
         if hasattr(context, "vector_jacobian_product"):
             hutchinson_vjp = context.vector_jacobian_product
         else:
-            hutchinson_vjp = batch_vector_jacobian_product(dx, x,)
+            hutchinson_vjp = batch_vector_jacobian_product(dx, x)
             context.hutchinson_vjp = hutchinson_vjp
         frob_norm = hutchinson_vjp.view(hutchinson_vjp.shape[0], -1).pow(2).mean(dim=-1)
         return frob_norm
@@ -127,7 +127,7 @@ def jacobian_frobenius_regularization_fn(x, logp, dx, dlogp, t, context, exact=F
 def sample_gaussian_like(y):
     return torch.randn_like(y)
 
-def batch_vector_jacobian_product(f, z, e):
+def batch_vector_jacobian_product(f, z):
     e_jacobian = torch.autograd.grad(f.squeeze(), z, sample_gaussian_like(z), create_graph=True)[0]
     return e_jacobian
 
