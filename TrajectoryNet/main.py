@@ -306,7 +306,7 @@ def train_eval(device, args, model, itr, best_loss, logger, full_data, train_los
         }
         torch.save(
             chkpt,
-            os.path.join(args.save, "checkpt.pth"),
+            os.path.join(args.save, f"checkpt_{itr}.pth"),
         )
 
 
