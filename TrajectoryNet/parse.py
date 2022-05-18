@@ -6,16 +6,6 @@ from lib.layers import odefunc
 
 SOLVERS = ["dopri5", "bdf", "rk4", "midpoint", "adams", "explicit_adams", "fixed_adams"]
 
-NONLINEARITIES = [
-    "tanh",
-    "relu",
-    "softplus",
-    "elu",
-    "swish",
-    "square",
-    "identity",
-]
-
 parser = argparse.ArgumentParser("Sinkhorn NeuralODE for Single Cell Data")
 parser.add_argument("--test", action="store_true")
 parser.add_argument("--dataset", type=str, default="EB")
@@ -26,9 +16,8 @@ parser.add_argument("--max_dim", type=int, default=10)
 
 #Feed forward Network
 parser.add_argument("--dims", type=str, default="256-128-64")
-parser.add_argument("--ffn_nonlinearity", type=str, default="tanh", choices=NONLINEARITIES)
+parser.add_argument("--ffn_nonlinearity", type=str, default="tanh", choices=odefunc.NONLINEARITIES)
 parser.add_argument("--ffn_nonl_final", type=eval, default=False)
-
 
 #time2vec
 parser.add_argument("--time2vec_dims", type=int, default=64)
@@ -38,7 +27,7 @@ parser.add_argument("--sape_freqs", type=int, default=128)
 parser.add_argument("--sape_incremental", type=eval, default=True)
 parser.add_argument("--sape_time", type=eval, default=True)
 
-
+parser.add_argument("--sinkhorn_blur", type=float, default=float)
 parser.add_argument("--num_blocks", type=int, default=1, help="Number of stacked CNFs.")
 parser.add_argument("--time_scale", type=float, default=0.5)
 parser.add_argument("--train_T", type=eval, default=True)
@@ -47,9 +36,6 @@ parser.add_argument(
     type=str,
     default="brute_force",
     choices=["brute_force", "approximate"],
-)
-parser.add_argument(
-    "--nonlinearity", type=str, default="tanh", choices=odefunc.NONLINEARITIES
 )
 parser.add_argument("--stochastic", action="store_true")
 
@@ -77,7 +63,7 @@ parser.add_argument("--num_workers", type=int, default=8)
 parser.add_argument("--batch_size", type=int, default=1000)
 parser.add_argument("--test_batch_size", type=int, default=1000)
 parser.add_argument("--viz_batch_size", type=int, default=2000)
-parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--lr", type=float, default=3e-4)
 parser.add_argument("--weight_decay", type=float, default=1e-5)
 
 # Regularizations
@@ -110,7 +96,7 @@ parser.add_argument("--no_display_loss", action="store_false")
 parser.add_argument(
     "--top_k_reg", type=float, default=0.0, help="density following regularization"
 )
-parser.add_argument("--training_noise", type=float, default=0.1)
+parser.add_argument("--training_noise", type=float, default=0.0)
 parser.add_argument(
     "--embedding_name",
     type=str,
