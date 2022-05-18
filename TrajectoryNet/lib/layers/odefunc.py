@@ -177,7 +177,7 @@ class DiffeqNet(nn.Module):
             stack.append(nn.Linear(input_size, output_size))
             stack.append(NONLINEARITIES[nonlinearity])
             input_size = output_size
-        stack.append(nn.Linear(stack[-1].out_features, vector_field_dims))
+        stack.append(nn.Linear(input_size, vector_field_dims))
         if nonl_final:
             stack.append(NONLINEARITIES[nonlinearity])
         self.ffn = nn.Sequential(*stack)
