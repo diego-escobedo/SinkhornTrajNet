@@ -205,7 +205,7 @@ def train(
     
 
     end = time.time()
-    train_loss_fn = SamplesLoss("sinkhorn", p=2, blur=args.blur, backend="online")
+    train_loss_fn = SamplesLoss("sinkhorn", p=2, blur=args.sinkhorn_blur, backend="online")
     for itr in range(1, args.niters + 1):
         model.train()
         optimizer.zero_grad()

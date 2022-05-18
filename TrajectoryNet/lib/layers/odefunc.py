@@ -170,10 +170,9 @@ class DiffeqNet(nn.Module):
 
         #handle ffn
         #if no sape or time2vec just feed everything in directly
-        input_size =  self.ff_network_d_in if self.ff_network_d_in > 0 else vector_field_dims+1 
-        stack = [nn.Linear(input_size, ff_hidden_dims[0])]
-        input_size = ff_hidden_dims[0]
-        for output_size in ff_hidden_dims[1:]:
+        stack = []
+        input_size = self.ff_network_d_in if self.ff_network_d_in > 0 else vector_field_dims+1
+        for output_size in ff_hidden_dims:
             stack.append(nn.Linear(input_size, output_size))
             stack.append(NONLINEARITIES[nonlinearity])
             input_size = output_size
