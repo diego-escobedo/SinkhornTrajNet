@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__all__ = ["ODEnet", "AutoencoderDiffEqNet", "VanillaODEfunc", "ODEfunc", "AutoencoderODEfunc", "DiffeqNet"]
+__all__ = ["VanillaODEfunc", "DiffeqNet"]
 
 
 def divergence_bf(dx, y, **unused_kwargs):
@@ -220,6 +220,7 @@ class DiffeqNet(nn.Module):
 class Time2Vec(nn.Module):
     "Make a time2vec component"
     def __init__(self, projection_dims, t2v_activation=torch.sin):
+        super(Time2Vec, self).__init__()
         self.time_proj_unactivated = nn.Linear(1, 1) # will take from 1x1 -> 1x1
         if projection_dims > 0:
             self.time_proj_activated = nn.Linear(1, projection_dims)
@@ -244,7 +245,7 @@ class InputMapping(nn.Module):
     """Fourier features mapping"""
 
     def __init__(self, d_in, n_freq, sigma=2, tdiv=2, incrementalMask=True, Tperiod=None):
-        super().__init__()
+        super(InputMapping, self).__init__()
         Bmat = torch.randn(d_in, n_freq) * np.pi* sigma/np.sqrt(d_in)  # gaussian
         
         # time frequencies are a quarter of spacial frequencies.
