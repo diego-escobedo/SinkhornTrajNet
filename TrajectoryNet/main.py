@@ -284,12 +284,12 @@ def train(
 
 def train_eval(device, args, model, itr, best_loss, logger, full_data, train_loss_fn, regularization_coeffs):
     model.eval()
-    loss, reg_loss, _ = compute_loss(device, args, model, logger, full_data, train_loss_fn, regularization_coeffs)
-    test_loss = loss + reg_loss
+    # loss, reg_loss, _ = compute_loss(device, args, model, logger, full_data, train_loss_fn, regularization_coeffs)
+    # test_loss = loss + reg_loss
     emd_backward, emd_forward = evaluate_kantorovich_v2(device, args, model)
     test_nfe = count_nfe(model)
-    log_message = "[TEST] Iter {:04d} | Test+Reg Loss {:.6f} | NFE {:.0f} | EMD F/B {:.4f}/{:.4f}".format(
-        itr, test_loss.item(), test_nfe, emd_forward, emd_backward
+    log_message = "[TEST] Iter {:04d} | NFE {:.0f} | EMD F/B {:.4f}/{:.4f}".format(
+        itr, test_nfe, emd_forward, emd_backward
     )
     logger.info(log_message)
     utils.makedirs(args.save)
@@ -297,10 +297,11 @@ def train_eval(device, args, model, itr, best_loss, logger, full_data, train_los
         import csv
 
         writer = csv.writer(f)
-        writer.writerow((itr, test_loss))
+        writer.writerow((itr, emd_forward, emd_backward))
 
-    if test_loss.item() < best_loss:
-        best_loss = test_loss.item()
+    harmonic_mean = (2*emd_forward*emd_backward)/(emd_forward+emd_backward)
+    if harmonic_mean < best_loss:
+        best_loss = harmonic_mean
         chkpt = {
             "state_dict": model.state_dict(),
         }
